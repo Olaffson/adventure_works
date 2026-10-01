@@ -45,7 +45,7 @@ Vous avez été embauché pour reprendre et compléter le travail commencé par 
 | Partie | Livrable |
 |---|---|
 | 1) Récupération et configuration des données | [`Dockerfile`](Dockerfile) (restauration des deux bases) et [`docs/01-bases-de-donnees.md`](docs/01-bases-de-donnees.md) : connexion, rôle des bases, ERD, ETL, définitions |
-| 2) Requêtes SQL pour l'OLTP | [`sql/Script.sql`](sql/Script.sql) : les 50 premières requêtes |
+| 2) Requêtes SQL pour l'OLTP | [`sql/Script.sql`](sql/Script.sql) : 100 requêtes (1 à 50 : bases du SQL ; 51 à 100 : analyses avancées avec CTE, fonctions de fenêtrage, PIVOT, hiérarchie, achats, stocks et RH) |
 | 3) Déploiement sur Azure | [`docs/03-deploiement-azure.md`](docs/03-deploiement-azure.md) : image publiée sur Docker Hub et déployée dans Azure Container Instances |
 | 4) Tableau de bord | [`dashboard/`](dashboard) : application Streamlit connectée à la base OLTP |
 
