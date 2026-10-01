@@ -49,7 +49,7 @@ USE AdventureWorks2019;
 
 SELECT SalesOrderID, CustomerID, OrderDate, SubTotal, (TaxAmt*100)/SubTotal AS Tax_percent
 FROM Sales.SalesOrderHeader
-ORDER BY SubTotal DESC;
+ORDER BY SubTotal ASC;
 
 
 -- 6.
@@ -104,9 +104,9 @@ ORDER BY ProductID ASC;
 -- À partir du tableau suivant, écrivez une requête en SQL pour trouver la quantité totale d'un groupe d'ID de localisation multipliée par 10. 
 USE AdventureWorks2019;
 
-SELECT SUM(LocationID) * 10 AS quantity_total
+SELECT SUM(Quantity) AS quantity_total
 FROM Production.ProductInventory
-GROUP BY LocationID;
+GROUP BY (LocationID * 10);
 
 
 -- 11.
@@ -192,7 +192,7 @@ ORDER BY Address.City;
 -- Triez le résultat par ordre croissant sur la partie année de la date de commande. 
 USE AdventureWorks2019;
 
-SELECT YEAR(OrderDate), SUM(TotalDue) AS montant_commande
+SELECT YEAR(OrderDate) AS annee, SUM(TotalDue) AS montant_commande
 FROM Sales.SalesOrderHeader
 GROUP BY YEAR(OrderDate)
 ORDER BY YEAR(OrderDate)
@@ -205,7 +205,7 @@ ORDER BY YEAR(OrderDate)
 -- Triez le résultat par ordre croissant sur la partie année de la date de commande.
 USE AdventureWorks2019;
 
-SELECT YEAR(OrderDate), SUM(TotalDue) AS total_commande
+SELECT YEAR(OrderDate) AS annee, SUM(TotalDue) AS total_commande
 FROM Sales.SalesOrderHeader soh 
 WHERE YEAR(OrderDate) < 2017
 GROUP BY YEAR(OrderDate)
@@ -220,7 +220,8 @@ USE AdventureWorks2019;
 
 SELECT ContactTypeID, Name 
 FROM Person.ContactType ct 
-ORDER BY ContactTypeID DESC 
+WHERE Name LIKE '%Manager%'
+ORDER BY ContactTypeID DESC; 
 
 
 -- 20.
@@ -249,8 +250,10 @@ pp.LastName, sp.SalesYTD, pa.PostalCode
 FROM Sales.SalesPerson AS sp
     INNER JOIN Person.Person AS pp
         ON sp.BusinessEntityID = pp.BusinessEntityID
+    INNER JOIN Person.BusinessEntityAddress AS bea
+        ON bea.BusinessEntityID = pp.BusinessEntityID
     INNER JOIN Person.Address AS pa
-        ON pa.AddressID = pp.BusinessEntityID
+        ON pa.AddressID = bea.AddressID
 WHERE TerritoryID IS NOT NULL
     AND SalesYTD <> 0
 ORDER BY PostalCode;
@@ -277,10 +280,10 @@ ORDER BY COUNT(*) DESC;
 -- Triez la sortie par ordre croissant sur NameInFull. 
 USE AdventureWorks2019;
 
-SELECT CAST(eph.RateChangeDate as VARCHAR(11) ) AS Date, p.FirstName + ' ' + p.MiddleName + ' ' + p.LastName AS NameInFull, eph.Rate * 40 AS Salary
+SELECT CAST(eph.RateChangeDate AS DATE) AS Date, CONCAT_WS(' ', p.FirstName, p.MiddleName, p.LastName) AS NameInFull, eph.Rate * 40 AS Salary
 FROM HumanResources.EmployeePayHistory eph 
 INNER JOIN Person.Person p ON eph.BusinessEntityID = p.BusinessEntityID 
-ORDER BY NameInFull
+ORDER BY NameInFull;
 
 
 -- 24.
@@ -289,10 +292,15 @@ ORDER BY NameInFull
 -- Triez la sortie par ordre croissant sur NameInFull. 
 USE AdventureWorks2019;
 
-SELECT CAST(eph.RateChangeDate as VARCHAR(11) ) AS Date, p.FirstName + ' ' + p.MiddleName + ' ' + p.LastName AS NameInFull, eph.Rate * 40 AS Salary
+SELECT CAST(eph.RateChangeDate AS DATE) AS Date, CONCAT_WS(' ', p.FirstName, p.MiddleName, p.LastName) AS NameInFull, eph.Rate * 40 AS Salary
 FROM HumanResources.EmployeePayHistory eph 
 INNER JOIN Person.Person p ON eph.BusinessEntityID = p.BusinessEntityID 
-ORDER BY NameInFull
+WHERE eph.RateChangeDate = (
+    SELECT MAX(eph2.RateChangeDate)
+    FROM HumanResources.EmployeePayHistory eph2
+    WHERE eph2.BusinessEntityID = eph.BusinessEntityID
+)
+ORDER BY NameInFull;
 
 
 -- 25.
@@ -389,8 +397,10 @@ SELECT p.FirstName, p.LastName
 FROM Sales.SalesPerson AS s   
     INNER JOIN Person.Person AS p   
         ON s.BusinessEntityID = p.BusinessEntityID  
-    INNER JOIN Person.Address AS a   
-        ON a.AddressID = p.BusinessEntityID  
+    INNER JOIN Person.BusinessEntityAddress AS bea
+        ON bea.BusinessEntityID = p.BusinessEntityID
+    INNER JOIN Person.Address AS a
+        ON a.AddressID = bea.AddressID
 WHERE TerritoryID IS NOT NULL AND SalesYTD <> 0;
         
         
@@ -452,7 +462,7 @@ ORDER BY p.Name;
 -- The result set includes all salespeople, regardless of whether or not they are assigned a territory. 
 SELECT st.Name, sp.BusinessEntityID 
 FROM Sales.SalesTerritory st 
-JOIN Sales.SalesPerson sp ON st.TerritoryID = sp.TerritoryID;
+RIGHT JOIN Sales.SalesPerson sp ON st.TerritoryID = sp.TerritoryID;
 
 
 -- 42.
@@ -501,7 +511,7 @@ ON a.Name = b.Name;
 -- Create a SQL query to display the total number of sales orders each sales representative receives annually.
 -- Sort the result set by SalesPersonID and then by the date component of the orderdate in ascending order.
 -- Return the year component of the OrderDate, SalesPersonID, and SalesOrderID.
-SELECT SalesPersonID,COUNT(SalesPersonID) , YEAR(OrderDate)
+SELECT YEAR(OrderDate) AS annee, SalesPersonID, COUNT(SalesOrderID) AS nombre_commandes
 FROM Sales.SalesOrderHeader soh 
 WHERE SalesPersonID IS NOT NULL 
 GROUP BY SalesPersonID, YEAR(OrderDate)
@@ -515,7 +525,7 @@ AS (SELECT SalesPersonID, COUNT(*)
     FROM Sales.SalesOrderHeader
     WHERE SalesPersonID IS NOT NULL
     GROUP BY SalesPersonID)
-SELECT AVG(NumberOfOrders) AS "Average Sales Per Person"
+SELECT AVG(NumberOfOrders * 1.0) AS "Average Sales Per Person"
 FROM Sales_CTE;
 
 
@@ -525,7 +535,7 @@ FROM Sales_CTE;
 -- Les colonnes du tableau suivant doivent toutes être renvoyées.
 SELECT *
 FROM Production.ProductPhoto pp 
-WHERE LargePhotoFileName LIKE '%green_%'
+WHERE LargePhotoFileName LIKE '%green[_]%'
 
 
 -- 49.
