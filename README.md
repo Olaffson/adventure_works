@@ -51,28 +51,41 @@ Vous avez été embauché pour reprendre et compléter le travail commencé par 
 
 ## Lancer le projet
 
-Les fichiers `.bak` ne sont pas versionnés : le Dockerfile les télécharge directement depuis les [releases Microsoft](https://github.com/Microsoft/sql-server-samples/releases/tag/adventureworks).
+Les images sont publiées sur Docker Hub : [`olaffsen/adventureworks-db`](https://hub.docker.com/r/olaffsen/adventureworks-db) (SQL Server 2022 + sauvegardes AdventureWorks) et [`olaffsen/adventureworks-dashboard`](https://hub.docker.com/r/olaffsen/adventureworks-dashboard). Elles ne contiennent aucun mot de passe : le mot de passe SA est choisi au lancement, et les bases sont restaurées au premier démarrage.
 
 ### Base de données et tableau de bord (Docker Compose)
 
 ```bash
 cp .env.example .env      # puis choisir un mot de passe SA dans .env
-docker compose up --build
+docker compose up -d      # télécharge les images depuis Docker Hub
 ```
 
 - Tableau de bord : http://localhost:8501
 - SQL Server : `localhost,1433`, utilisateur `sa` (DBeaver, Azure Data Studio...)
 
-Le premier lancement télécharge l'image SQL Server et les sauvegardes (environ 2 Go), puis restaure les deux bases.
+Au premier lancement, la restauration des deux bases prend environ 1 minute 30 ; le tableau de bord démarre dès qu'elles sont prêtes (`docker compose ps` affiche alors `healthy`). Les bases sont conservées dans le volume `mssql-data` : les lancements suivants prennent quelques secondes.
+
+| Commande | Effet |
+|---|---|
+| `docker compose up -d --build` | construit les images à partir du code au lieu de les télécharger |
+| `docker compose pull` | récupère la dernière version des images publiées |
+| `docker compose down` | arrête les conteneurs (les bases sont conservées) |
+| `docker compose down -v` | arrête et supprime les bases ; à faire aussi après un changement de mot de passe dans `.env` |
 
 ### Base de données seule
 
-Le mot de passe SA est fourni au moment du build (il doit respecter la politique de complexité de SQL Server) :
-
 ```bash
-docker build --build-arg MSSQL_SA_PASSWORD=<mot_de_passe> -t olaffsen/mssqlserver:adventureworks2019 .
-docker run -p 1433:1433 --name mssqlserver --hostname mssqlserver olaffsen/mssqlserver:adventureworks2019
+docker run -d -e MSSQL_SA_PASSWORD=<mot_de_passe> -p 1433:1433 --name adventureworks-db olaffsen/adventureworks-db
 ```
+
+Le mot de passe doit respecter la politique de complexité de SQL Server (au moins 8 caractères avec majuscules, minuscules, chiffres et symboles).
+
+### Publication des images
+
+Le workflow [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) construit et publie les deux images sur Docker Hub à chaque modification de `Dockerfile`, `docker/` ou `dashboard/` sur `main` (ou manuellement depuis l'onglet *Actions*). Il nécessite, dans *Settings > Secrets and variables > Actions* :
+
+- la **variable** `DOCKERHUB_USERNAME` : le nom du compte Docker Hub ;
+- le **secret** `DOCKERHUB_TOKEN` : un jeton d'accès Docker Hub (*Account settings > Personal access tokens*, droits *Read & Write*).
 
 ## Tableau de bord
 

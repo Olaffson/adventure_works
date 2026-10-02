@@ -2,22 +2,16 @@
 
 La méthode retenue est **Azure Container Instances (ACI)** : l'image Docker contenant SQL Server et les bases restaurées est publiée sur Docker Hub, puis lancée comme conteneur sur Azure. C'est la solution la moins coûteuse : on ne paie que pendant que le conteneur tourne, et on peut l'arrêter à tout moment (contrairement à Azure SQL Database, qui demande une validation préalable du responsable à cause du coût).
 
+> Le compte Azure utilisé pour le projet n'est plus actif : cette page décrit la procédure pour redéployer la base.
+
 ## Prérequis
 
 - Un compte Azure et [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (`az login`)
-- Docker et un compte Docker Hub
+- L'image `olaffsen/adventureworks-db` publiée sur Docker Hub (automatiquement par le workflow GitHub Actions, voir le [README](../README.md#publication-des-images))
 
-## 1. Construire et publier l'image
+L'image ne contient aucun mot de passe : il est transmis au conteneur au lancement, et les bases sont restaurées au premier démarrage.
 
-```bash
-docker build --build-arg MSSQL_SA_PASSWORD=<mot_de_passe_fort> -t olaffsen/mssqlserver:adventureworks2019 .
-docker login
-docker push olaffsen/mssqlserver:adventureworks2019
-```
-
-> ⚠️ Le mot de passe passé au build est stocké dans l'image (visible avec `docker history`). Utiliser un mot de passe dédié à ce déploiement, et une image **privée** sur Docker Hub si possible (ajouter alors `--registry-username` et `--registry-password` à la commande `az container create`).
-
-## 2. Créer le conteneur sur Azure
+## 1. Créer le conteneur sur Azure
 
 ```bash
 az group create --name rg-adventureworks --location francecentral
@@ -25,26 +19,29 @@ az group create --name rg-adventureworks --location francecentral
 az container create \
   --resource-group rg-adventureworks \
   --name aci-adventureworks \
-  --image olaffsen/mssqlserver:adventureworks2019 \
+  --image olaffsen/adventureworks-db:latest \
   --os-type Linux \
   --cpu 2 --memory 4 \
   --ports 1433 \
   --ip-address Public \
-  --dns-name-label adventureworks-<suffixe-unique>
+  --dns-name-label adventureworks-<suffixe-unique> \
+  --secure-environment-variables MSSQL_SA_PASSWORD=<mot_de_passe_fort>
 ```
+
+`--secure-environment-variables` masque le mot de passe dans le portail et dans les réponses de l'API Azure.
 
 SQL Server demande au moins 2 Go de mémoire ; 4 Go laissent de la marge pour les deux bases.
 
-## 3. Se connecter
+## 2. Se connecter
 
 ```bash
 az container show --resource-group rg-adventureworks --name aci-adventureworks \
   --query "{fqdn: ipAddress.fqdn, etat: instanceView.state}" --output table
 ```
 
-Dans DBeaver : hôte = le FQDN affiché (`adventureworks-<suffixe>.francecentral.azurecontainer.io`), port `1433`, utilisateur `sa`.
+La restauration des bases prend 1 à 2 minutes après le démarrage (`az container logs --resource-group rg-adventureworks --name aci-adventureworks`). Dans DBeaver : hôte = le FQDN affiché (`adventureworks-<suffixe>.francecentral.azurecontainer.io`), port `1433`, utilisateur `sa`.
 
-## 4. Maîtriser les coûts
+## 3. Maîtriser les coûts
 
 ```bash
 az container stop  --resource-group rg-adventureworks --name aci-adventureworks   # arrête la facturation du calcul
