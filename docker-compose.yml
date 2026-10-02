@@ -1,24 +1,22 @@
-# Lance la base SQL Server (bases AdventureWorks restaurées) et le tableau de bord
+# Lance la base SQL Server (bases AdventureWorks) et le tableau de bord
 #   1. copier .env.example en .env et choisir un mot de passe
-#   2. docker compose up --build
+#   2. docker compose up -d          (télécharge les images publiées sur Docker Hub)
+#      ou docker compose up -d --build   (construit les images à partir du code)
 #   3. ouvrir http://localhost:8501
 services:
   db:
-    build:
-      context: .
-      args:
-        MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD manquant, voir .env.example}
+    image: olaffsen/adventureworks-db:latest
+    build: .
     ports:
       - "1433:1433"
-    healthcheck:
-      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -C -d AdventureWorks2019 -Q "SELECT 1" -b -o /dev/null
-      interval: 5s
-      timeout: 5s
-      retries: 30
     environment:
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD manquant, voir .env.example}
+    volumes:
+      # Conserve les bases et le mot de passe SA entre deux lancements
+      - mssql-data:/var/opt/mssql
 
   dashboard:
+    image: olaffsen/adventureworks-dashboard:latest
     build: ./dashboard
     ports:
       - "8501:8501"
@@ -28,3 +26,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+volumes:
+  mssql-data:
