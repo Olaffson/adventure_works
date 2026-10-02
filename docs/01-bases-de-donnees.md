@@ -2,7 +2,7 @@
 
 ## Restauration et connexion
 
-Les deux bases sont restaurées automatiquement par le [`Dockerfile`](../Dockerfile) à partir des sauvegardes officielles Microsoft :
+Les deux bases sont restaurées automatiquement au premier démarrage du conteneur (script [`docker/restore-databases.sh`](../docker/restore-databases.sh)), à partir des sauvegardes officielles Microsoft incluses dans l'image :
 
 | Base | Type | Contenu |
 |---|---|---|
@@ -10,8 +10,8 @@ Les deux bases sont restaurées automatiquement par le [`Dockerfile`](../Dockerf
 | `AdventureWorksDW2019` | DataWarehouse (OLAP) | 31 tables : tables de faits (`Fact*`) et de dimensions (`Dim*`) |
 
 ```bash
-docker build --build-arg MSSQL_SA_PASSWORD=<mot_de_passe> -t olaffsen/mssqlserver:adventureworks2019 .
-docker run -d -p 1433:1433 --name mssqlserver olaffsen/mssqlserver:adventureworks2019
+docker run -d -e MSSQL_SA_PASSWORD=<mot_de_passe> -p 1433:1433 --name adventureworks-db olaffsen/adventureworks-db
+docker logs -f adventureworks-db    # attendre « AdventureWorksDW2019 restaurée »
 ```
 
 Connexion avec DBeaver (ou Azure Data Studio, SSMS) :
@@ -21,7 +21,7 @@ Connexion avec DBeaver (ou Azure Data Studio, SSMS) :
 | Hôte | `localhost` |
 | Port | `1433` |
 | Utilisateur | `sa` |
-| Mot de passe | celui passé au build |
+| Mot de passe | celui passé dans `MSSQL_SA_PASSWORD` |
 | Option | cocher *Trust server certificate* |
 
 ## Rôle de chaque base et lien entre elles

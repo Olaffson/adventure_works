@@ -1,23 +1,21 @@
 # Adventure Works Database on SQL Server 2022
-# Dockerfile pour creer l image et restaurer les bdd AdventureWorks2019 (OLTP) et AdventureWorksDW2019 (DataWarehouse)
+# Image contenant les sauvegardes AdventureWorks2019 (OLTP) et AdventureWorksDW2019 (DataWarehouse).
+# Les bases sont restaurées au premier démarrage du conteneur : l'image ne contient aucun mot de passe
+# et peut être publiée publiquement sur Docker Hub.
 #
-# Le mot de passe SA n est pas stocke dans le depot : il est passe au moment du build
-#   docker build --build-arg MSSQL_SA_PASSWORD=<mot_de_passe> -t olaffsen/mssqlserver:adventureworks2019 .
-#   docker run -p 1433:1433 --name mssqlserver --hostname mssqlserver olaffsen/mssqlserver:adventureworks2019
+#   docker build -t olaffsen/adventureworks-db .
+#   docker run -d -e MSSQL_SA_PASSWORD=<mot_de_passe> -p 1433:1433 --name adventureworks-db olaffsen/adventureworks-db
 
 FROM mcr.microsoft.com/mssql/server:2022-latest
 
-ARG MSSQL_SA_PASSWORD
 ENV ACCEPT_EULA=Y
 
-ADD --chown=mssql https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2019.bak /var/opt/mssql/backup/
-ADD --chown=mssql https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2019.bak /var/opt/mssql/backup/
+ADD --chown=mssql https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2019.bak /opt/adventureworks/backup/
+ADD --chown=mssql https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorksDW2019.bak /opt/adventureworks/backup/
+COPY --chmod=755 docker/restore-databases.sh docker/entrypoint.sh /usr/local/bin/
 
-RUN test -n "$MSSQL_SA_PASSWORD" || (echo "MSSQL_SA_PASSWORD manquant : utiliser --build-arg MSSQL_SA_PASSWORD=..." && exit 1) \
-    && ( /opt/mssql/bin/sqlservr & ) \
-    && for i in $(seq 1 60); do /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" > /dev/null 2>&1 && break; sleep 2; done \
-    && /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "RESTORE DATABASE AdventureWorks2019 FROM DISK = '/var/opt/mssql/backup/AdventureWorks2019.bak' WITH MOVE 'AdventureWorks2019' TO '/var/opt/mssql/data/AdventureWorks2019.mdf', MOVE 'AdventureWorks2019_log' TO '/var/opt/mssql/data/AdventureWorks2019_log.ldf', STATS = 10" \
-    && /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "RESTORE DATABASE AdventureWorksDW2019 FROM DISK = '/var/opt/mssql/backup/AdventureWorksDW2019.bak' WITH MOVE 'AdventureWorksDW2019' TO '/var/opt/mssql/data/AdventureWorksDW2019.mdf', MOVE 'AdventureWorksDW2019_log' TO '/var/opt/mssql/data/AdventureWorksDW2019_log.ldf', STATS = 10" \
-    && pkill sqlservr
+# Les bases restaurées sont prêtes quand AdventureWorksDW2019 (restaurée en dernier) accepte les connexions
+HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=30 \
+    CMD /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -b -d AdventureWorksDW2019 -Q "SELECT 1" -o /dev/null
 
-CMD ["/opt/mssql/bin/sqlservr"]
+CMD ["/usr/local/bin/entrypoint.sh"]
